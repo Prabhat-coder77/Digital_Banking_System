@@ -6,6 +6,7 @@ import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
+import com.banking.transactionservice.event.TransactionCompletedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -150,6 +151,35 @@ public class TransactionService {
         fraudEvent.put("reason",reason);
 
         kafkaTemplate.send(FRAUD_DETECTED_TOPIC, transaction.getSenderAccountNumber(),fraudEvent);
+        log.warn("fruad.detected published account: {} will be blocked kindly contact to the Bank",transaction.getSenderAccountNumber());
+
+        //SAGA Compensation - refund Sender
+        compensateTransaction(transaction,reason);
+
+    }
+
+    private void completeTransaction(Transaction  transaction){
+        transaction.setStatus(TransactionStatus.COMPLETED);
+        transaction.setCompletedAt(LocalDateTime.now());
+        transactionRepository.save(transaction);
+
+        TransactionCompletedEvent completedEvent = new TransactionCompletedEvent(transaction.getId(),
+                transaction.getSenderAccountNumber(), transaction.getReceiverAccountNumber(),
+                transaction.getAmount(), transaction.getDescription());
+
+        kafkaTemplate.send(TRANSACTION_COMPLETED_TOPIC,transaction.getId(),completedEvent);
+       log.info("SAGA COMPLETED- Transaction: {} completed: {}",transaction.getId(),transaction.getSenderAccountNumber());
+    }
+
+    public void processCleanResult(String transactionId){
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction Not Found: " + transactionId));
+
+        if(transaction.getStatus() != TransactionStatus.PROCESSING){
+            log.warn("Transaction {} not processing -skiping",transactionId);
+            return;
+        }
+        completeTransaction(transaction);
     }
 
 
