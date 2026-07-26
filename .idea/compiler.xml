@@ -10,7 +10,6 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
         </processorPath>
         <module name="api-gateway" />
-        <module name="payment-service" />
         <module name="account-service" />
         <module name="notification-service" />
       </profile>
@@ -23,6 +22,12 @@
         </processorPath>
         <module name="transaction-service" />
         <module name="fraud-detection-service" />
+      </profile>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="payment-service" />
       </profile>
     </annotationProcessing>
   </component>
